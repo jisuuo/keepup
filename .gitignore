@@ -1,0 +1,44 @@
+# ===== 비밀 정보 (공개 저장소: 절대 커밋 금지) =====
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.yaml
+application-local.properties
+application-secret.yml
+application-secret.yaml
+application-prod.yml
+application-prod.yaml
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+credentials*.json
+
+# ===== Gradle / Java =====
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+bin/
+*.class
+*.log
+hs_err_pid*
+*.hprof
+
+# ===== 로컬 데이터 (Docker 볼륨, 덤프) =====
+docker/**/data/
+*.sql.gz
+dump*.sql
+
+# ===== IDE =====
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
