@@ -8,16 +8,17 @@ phase: 0
 type: daily
 checklist: []
 data_structures: []
-tags: [spring-boot, mysql, docker-compose, actuator]
+tags: [spring-boot, mysql, docker-compose, actuator, curl]
 related: [ROADMAP.md]
 commits: [a8ce233]
 status: draft
 ---
 
-> Claude 초안입니다. 「내 판단」 칸과 `TODO` 표시는 직접 채우고, 문장은 내 말로 고친 뒤 `status: ready`로 바꿉니다.
+> Claude 초안입니다. `TODO` 표시는 직접 채우고, 문장은 내 말로 고친 뒤 `status: ready`로 바꿉니다.
 
 ## 1. 오늘의 목표
 - Spring Boot + MySQL 프로젝트를 만들고, 로컬 Docker Compose로 DB를 띄워 헬스체크가 `UP`으로 나오게 한다.
+- 헬스체크 응답을 어디까지 밖에 보여줄지 정한다.
 
 ## 2. 따라간 요청
 오늘은 요청 하나를 끝까지 따라가는 단계가 아니라 "따라갈 길을 까는" 날이다. 그래도 헬스체크 요청 하나가 어디를 지나는지는 확인했다.
@@ -26,31 +27,87 @@ status: draft
 curl → 톰캣(8080) → Actuator health → DB 커넥션 검사(isValid) → 응답
 ```
 
-| 구간 | 시간 |
-|---|---|
-| 연결(connect) | 0.2ms |
-| 첫 바이트(starttransfer) | 3.0ms |
-| 전체(total) | 3.2ms |
+`curl -w`로 잰 값은 구간의 길이가 아니라 **요청 시작부터의 누적 시각**이다. 구간별 소요는 뺄셈으로 구한다.
 
-로컬 루프백이라 네트워크 구간은 의미가 없다. 배포(5주차) 뒤에 같은 명령으로 다시 재서 비교할 기준선으로 남긴다.
+```
+0ms ─ connect ─ 요청 전송 ─ [서버 처리] ─ starttransfer ─ 본문 수신 ─ total
+```
+
+| 지점 | 누적 시각 | 구간 소요 | 의미 |
+|---|---|---|---|
+| connect | 0.22ms | 0.22ms | TCP 연결 완료 |
+| starttransfer | 2.98ms | 약 2.76ms | 요청 전송 + 서버 처리 (첫 바이트 도착, TTFB) |
+| total | 3.24ms | 약 0.26ms | 본문 수신 완료 |
+
+- 이 요청에서 약 2.76ms는 톰캣이 요청을 받아 Actuator가 DB 연결을 검사하고 응답을 쓰기 시작할 때까지의 시간이다. 이후 쿼리나 로직이 붙으면 늘어나는 곳이 이 구간이고, 요청 따라가기의 분해 대상도 여기다.
+- 로컬 HTTP라서 DNS 조회(`time_namelookup`)와 TLS(`time_appconnect`)는 거의 0이다. 5주차에 HTTPS로 배포하면 이 둘이 보이기 시작한다.
+- 한 번 잰 값이라 기준선으로는 약하다. 2주차 측정 스크립트에서 여러 번 재서 중앙값으로 바꾼다.
 
 ## 3. 측정값
+
+### 응답 시간
+위 표 참고. 한 번 잰 값이므로 실행마다 달라진다.
+
+### 정상일 때와 DB가 죽었을 때
 | 상황 | HTTP | 응답 |
 |---|---|---|
-| 정상 | 200 | `{"status":"UP", ...}` |
-| MySQL 컨테이너 중지 | 503 | `{"status":"DOWN", ...}` |
+| 정상 | 200 | `{"groups":["liveness","readiness"],"status":"UP"}` |
+| MySQL 컨테이너 중지 | 503 | `{"groups":["liveness","readiness"],"status":"DOWN"}` |
 
-- DB를 내린 뒤 503이 오기까지 약 30초가 걸렸다. (스톱워치로 잰 값이 아니라 로그 시각으로 본 대략치다. 2주차에 제대로 잰다.)
+- DB를 내린 직후의 요청은 수십 초가 걸린 뒤에 503이 왔다. 시간을 직접 재지는 못했다. (응답 `Date` 헤더 두 개와 그 사이 명령 시간으로 짐작한 값이라 숫자로 적지 않는다.)
+- 2주차에 같은 상황을 `curl -w`로 재서 정확한 값을 남긴다.
+
+### 직접 다시 확인하는 방법
+```bash
+docker compose up -d --wait
+./gradlew bootRun                  # 이 터미널은 서버가 차지함
+
+# 다른 터미널
+curl -s -o /dev/null -w "connect=%{time_connect}s starttransfer=%{time_starttransfer}s total=%{time_total}s\n" localhost:8080/actuator/health
+curl -s -i localhost:8080/actuator/health | head -1      # 200
+docker stop keepup-mysql
+curl -s -i localhost:8080/actuator/health | head -1      # 503 (한참 걸림)
+docker start keepup-mysql
+```
+끌 때는 서버 터미널에서 `Ctrl+C`, DB는 `docker compose stop`(데이터는 `docker/mysql/data/`에 남는다).
 
 ## 4. 배운 것: 한 층 아래
-- **헬스 상세 정보 노출:** `show-details=always`로 두면 DB 종류, 디스크 용량, 서버의 폴더 경로까지 응답에 나온다. 기본값(`never`)으로 되돌리니 `status`만 남았다.
-- **그래도 상태 코드는 유지된다:** 상세를 숨겨도 DB가 죽으면 200 → 503으로 바뀐다. 로드밸런서나 모니터링은 이 코드만으로 판단할 수 있다.
-- **DB 비밀번호:** 파일에 적지 않고 `${DB_PASSWORD:keepup}`처럼 환경 변수로 받고, 없을 때만 로컬 기본값을 쓴다.
-- TODO: 내 말로 한 줄 — 헬스체크 응답에 무엇을 보여주고 무엇을 숨길지, 나는 어떤 기준으로 정했나?
+
+### 헬스 응답에 무엇을 보여줄 것인가
+`show-details=always`로 두었을 때와 기본값(`never`)의 차이:
+
+```
+[always]  {"components":{"db":{"details":{"database":"MySQL", ...}},
+           "diskSpace":{"details":{"total":494384795648,"free":35066077184,
+             "path":"/Users/jisu/Desktop/my/01_Projects/keepup/.", ...}}, ...},
+           "status":"UP"}
+
+[never]   {"groups":["liveness","readiness"],"status":"UP"}
+```
+
+- `always`에서는 DB 종류, 디스크 용량, 서버의 폴더 경로까지 밖으로 나간다. 로컬에서는 문제가 없지만 배포하면 공격자에게 서버 구조를 알려주는 응답이 된다.
+- 상세를 숨겨도 DB가 죽으면 200에서 503으로 바뀐다. 로드밸런서나 모니터링은 상태 코드만으로 판단할 수 있다.
+- `/actuator/health/liveness`(프로세스가 살아있나)와 `/actuator/health/readiness`(트래픽 받을 준비가 됐나)는 상세를 숨겨도 그대로 쓸 수 있다.
+
+### 상세 정보를 API로 보려면 (이미 HTTP API다)
+헬스체크는 Actuator가 제공하는 HTTP API다. 상세를 보고 싶을 때의 선택지는 셋이다.
+
+| 방법 | 내용 | 비고 |
+|---|---|---|
+| A. 관리 포트 분리 | `management.server.port=8081` + `management.server.address=127.0.0.1` 후 `show-details=always` | 서버 안에서만 `curl localhost:8081/...`로 보인다. 외부 8080에서는 계속 숨겨진다. 추가 의존성 없음 |
+| B. 인증 후 공개 | `show-details=when-authorized` + Spring Security | 로그인 기능이 필요하다. 3주차 GitHub OAuth와 같이 하는 게 자연스럽다 |
+| C. 그냥 켜기 | `show-details=always` | 위 이유로 비추천 |
+
+- 6주차 이후 Prometheus + Grafana와 Discord 알림도 관리 포트에서 지표를 가져오게 하면 구조가 깔끔하다. 그래서 A가 유력하고, 5주차 배포 때 결정한다.
+- TODO: 내 말로 한 줄 — 나는 어떤 기준으로 "보여줄 것 / 숨길 것"을 나눴나?
+
+### DB 비밀번호
+파일에 적지 않고 `${DB_PASSWORD:keepup}`처럼 환경 변수로 받고, 없을 때만 로컬 기본값을 쓴다. 저장소가 공개라서 `.env`와 `application-local.*`는 `.gitignore`에 넣어 두었다.
 
 ## 5. 막힌 것 / 다음에 볼 것
-- 30초 지연의 원인이 HikariCP의 커넥션 획득 타임아웃(기본 30초)인지 아직 확인하지 못했다. → 2주차 Q2에서 풀 설정을 확인하며 검증.
-- 상세 헬스 정보를 운영 중에 볼 방법: 관리 포트 분리(`management.server.port`, 로컬 바인딩)를 5주차 배포 때 결정한다.
+- DB를 내렸을 때 응답이 오래 걸리는 원인이 HikariCP의 커넥션 획득 타임아웃(기본 30초)인지 확인하지 못했다. → 2주차 Q2에서 풀 설정을 확인하며 검증.
+- 위 방법 A(관리 포트 분리)를 5주차 배포 때 적용할지 결정한다.
+- 기준선은 한 번 잰 값이다. → 2주차 curl 측정 스크립트로 반복 측정.
 
 ## 6. 관련 커밋·문서
 - `a8ce233` feat: scaffold Spring Boot project with MySQL via Docker Compose
