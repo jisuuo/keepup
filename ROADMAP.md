@@ -348,5 +348,5 @@
 - PG 심사가 22주까지 끝나지 않으면 테스트키·가짜 PG로 22~25주 실험을 진행하고, 실사용자는 포인트 모드로 계속 운영한다(플랜 B).
 
 ## 다음에 만들 것
-README, LEARNING_LOG, docs/ 하위 템플릿, `blog/posts/` 글 템플릿, CLAUDE.md 학습 규칙, `/today` 명령어(+ 하루 마감 블로그 초안 명령어), Spring Boot 프로젝트 생성.
+1주차 항목은 모두 만들었다(2026-10-10): README, LEARNING_LOG, `docs/*/TEMPLATE.md`, `blog/_templates/`, CLAUDE.md 학습 규칙, `/today`·`/wrap` 명령어, ADR-001, Spring Boot 프로젝트. 다음은 2주차 측정 기반.
 - 참고: 같은 폴더에 `jisuuo.github.io`(블로그로 보임)가 있음. 추후 발행 파이프라인은 `keepup/blog/posts/`의 `status: ready` 글을 이 블로그로 보내는 형태가 자연스러움 — 파이프라인 작업 때 확인.
