@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: keepup
+  # 로컬 기본값은 compose.yaml과 같음. 다른 환경은 환경 변수로 덮어쓴다.
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/keepup?serverTimezone=Asia/Seoul
+    username: ${DB_USERNAME:keepup}
+    password: ${DB_PASSWORD:keepup}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+# 스레드 이름과 requestId를 모든 로그 줄에 붙인다 (RequestLogFilter가 MDC에 넣음)
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] [%X{requestId}] %-5level %logger{20} - %msg%n"
