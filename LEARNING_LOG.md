@@ -4,4 +4,4 @@
 
 | 날짜 | 질문 | 한 줄 요약 | 블로그 |
 |---|---|---|---|
-| 2026-10-10 (DAY 001) | – | Spring Boot + MySQL(Docker) 세팅. `/actuator/health` 200 `UP`(DB 포함), DB 중지 시 503 확인, 헬스 상세는 숨겨도 상태 판단은 그대로 | [DAY 001](blog/posts/2026-10-10-day-001-project-setup.md) |
+| 2026-10-10 (DAY 001) | – | Spring Boot + MySQL(Docker) 세팅. `/actuator/health` 200 `UP`(DB 포함), DB 중지 시 503 확인, 헬스 상세는 숨겨도 상태 판단은 그대로. 1주차 문서·도구(README, ADR-001, 학습 규칙, `/today`·`/wrap`, 템플릿) 마련 | [DAY 001](blog/posts/2026-10-10-day-001-project-setup.md) · [발행본](https://jisuuo.github.io/blog/keepup-day-001-project-setup/) |

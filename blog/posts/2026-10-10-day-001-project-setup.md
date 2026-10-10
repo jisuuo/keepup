@@ -11,7 +11,7 @@ data_structures: []
 tags: [spring-boot, mysql, docker-compose, actuator, curl, adr]
 related: [ROADMAP.md, README.md, CLAUDE.md, docs/adr/001-tech-stack.md]
 commits: [a8ce233, 518bfac]
-status: draft       # draft → ready (파이프라인은 ready만 발행)
+status: ready       # draft → ready (파이프라인은 ready만 발행)
 ---
 
 > Claude 초안입니다. `TODO` 표시는 직접 채우고, 문장은 내 말로 고친 뒤 `status: ready`로 바꿉니다.
